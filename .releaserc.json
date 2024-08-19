@@ -26,7 +26,8 @@
     {
       "name": "develop",
       "prerelease": "alpha"
-    },    {
+    },
+    {
       "name": "release"
     }
   ]
