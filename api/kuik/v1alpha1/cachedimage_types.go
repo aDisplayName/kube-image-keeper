@@ -26,11 +26,18 @@ type UsedBy struct {
 	Count int `json:"count,omitempty"`
 }
 
+type Progress struct {
+	Total     int64 `json:"total,omitempty"`
+	Available int64 `json:"available,omitempty"`
+}
+
 // CachedImageStatus defines the observed state of CachedImage
 type CachedImageStatus struct {
 	IsCached bool   `json:"isCached,omitempty"`
 	Phase    string `json:"phase,omitempty"`
 	UsedBy   UsedBy `json:"usedBy,omitempty"`
+
+	Progress Progress `json:"progress,omitempty"`
 
 	Digest             string      `json:"digest,omitempty"`
 	UpstreamDigest     string      `json:"upstreamDigest,omitempty"`
@@ -51,6 +58,7 @@ type CachedImageStatus struct {
 //+kubebuilder:printcolumn:name="Expires at",type="string",JSONPath=".spec.expiresAt"
 //+kubebuilder:printcolumn:name="Pods count",type="integer",JSONPath=".status.usedBy.count"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+//+kubebuilder:printcolumn:name="Downloaded",type="date",JSONPath=".status.progress.available"
 
 // CachedImage is the Schema for the cachedimages API
 type CachedImage struct {
