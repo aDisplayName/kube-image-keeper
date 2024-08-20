@@ -1,4 +1,4 @@
-package v1alpha1
+package v1alpha1ext1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +58,6 @@ type CachedImageStatus struct {
 //+kubebuilder:printcolumn:name="Expires at",type="string",JSONPath=".spec.expiresAt"
 //+kubebuilder:printcolumn:name="Pods count",type="integer",JSONPath=".status.usedBy.count"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-//+kubebuilder:printcolumn:name="Downloaded",type="date",JSONPath=".status.progress.available"
 
 // CachedImage is the Schema for the cachedimages API
 type CachedImage struct {
