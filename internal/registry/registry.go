@@ -164,7 +164,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 		if err != nil {
 			return err
 		}
-		defer close(progressUpdate)
+
 		if err := remote.Write(destRef, image, remote.WithProgress(progressUpdate)); err != nil {
 			return err
 		}
