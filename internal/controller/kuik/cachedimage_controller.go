@@ -345,8 +345,24 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 		return err
 	}
 
+	lastUpdateTime := time.Now()
+	lastWriteComplete := 0
 	onUpdated := func(update v1.Update) {
-		fmt.Printf("%s - %d", cachedImage.Spec.SourceImage, update.Complete)
+		needUpdate := false
+		if lastWriteComplete != update.Complete && update.Complete == update.Total{
+			// Update is needed whenever the writing complmetes.
+			needUpdate = true
+		}
+		
+		
+		if time.since(lastUpdateTime).Seconds > 5 {
+			needUpdate = true
+		}
+		if needUpdate {
+			fmt.Printf("%s - %d", cachedImage.Spec.SourceImage, update.Complete)
+			lastUpdateTime = time.Now
+		}
+		lastWriteComplete = update.Complete
 	}
 	err = registry.CacheImage(cachedImage.Spec.SourceImage, desc, r.Architectures, onUpdated)
 
