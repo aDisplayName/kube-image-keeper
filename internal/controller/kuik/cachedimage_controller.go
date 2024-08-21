@@ -346,21 +346,21 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 	}
 
 	lastUpdateTime := time.Now()
-	lastWriteComplete := 0
+	lastWriteComplete := int64(0)
 	onUpdated := func(update v1.Update) {
 		needUpdate := false
-		if lastWriteComplete != update.Complete && update.Complete == update.Total{
+		if lastWriteComplete != update.Complete && update.Complete == update.Total {
 			// Update is needed whenever the writing complmetes.
 			needUpdate = true
 		}
-		
-		
-		if time.since(lastUpdateTime).Seconds > 5 {
+
+		if time.Since(lastUpdateTime).Seconds() >= 5 {
+			// Update is needed if last update is more than 5 seconds ago
 			needUpdate = true
 		}
 		if needUpdate {
-			fmt.Printf("%s - %d", cachedImage.Spec.SourceImage, update.Complete)
-			lastUpdateTime = time.Now
+			fmt.Printf("%s - %d/%d", cachedImage.Spec.SourceImage, update.Complete, update.Total)
+			lastUpdateTime = time.Now()
 		}
 		lastWriteComplete = update.Complete
 	}
