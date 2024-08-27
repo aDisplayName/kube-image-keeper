@@ -35,7 +35,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: v1alpha1ext1
     schema:
       openAPIV3Schema:
         description: CachedImage is the Schema for the cachedimages API
@@ -90,6 +90,15 @@ spec:
                 type: string
               phase:
                 type: string
+              progress:
+                properties:
+                  available:
+                    format: int64
+                    type: integer
+                  total:
+                    format: int64
+                    type: integer
+                type: object
               upToDate:
                 type: boolean
               upstreamDigest:
