@@ -139,7 +139,7 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				return ctrl.Result{}, err
 			}
 			r.Recorder.Eventf(&cachedImage, "Normal", "CleanedUp", "Image %s successfully removed from cache", cachedImage.Spec.SourceImage)
-			// imageRemovedFromCache.Inc()
+			kuikController.ImageRemovedFromCache.Inc()
 
 			log.Info("removing finalizer")
 			controllerutil.RemoveFinalizer(&cachedImage, cachedImageFinalizerName)
@@ -230,8 +230,6 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 			r.Recorder.Eventf(&cachedImage, "Normal", "Expired", "Image %s successfully expired", cachedImage.Spec.SourceImage)
 			return ctrl.Result{}, nil
-		} else {
-			return ctrl.Result{RequeueAfter: time.Until(expiresAt.Time)}, nil
 		}
 	}
 
@@ -253,7 +251,7 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		} else {
 			log.Info("image cached")
 			r.Recorder.Eventf(&cachedImage, "Normal", "Cached", "Successfully cached image %s", cachedImage.Spec.SourceImage)
-			// imagePutInCache.Inc()
+			kuikController.ImagePutInCache.Inc()
 		}
 	} else {
 		log.Info("image already present in cache, ignoring")
@@ -264,6 +262,11 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	log.Info("cachedimage reconciled")
+
+	if !expiresAt.IsZero() {
+		return ctrl.Result{RequeueAfter: time.Until(expiresAt.Time)}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
