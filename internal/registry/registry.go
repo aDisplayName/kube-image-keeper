@@ -148,6 +148,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 	case types.OCIImageIndex, types.DockerManifestList:
 		index, err := desc.ImageIndex()
 		if err != nil {
+			close(progressUpdate)
 			return err
 		}
 
@@ -177,6 +178,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 	default:
 		image, err := desc.Image()
 		if err != nil {
+			close(progressUpdate)
 			return err
 		}
 
