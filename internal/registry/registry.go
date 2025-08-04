@@ -148,6 +148,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 	case types.OCIImageIndex, types.DockerManifestList:
 		index, err := desc.ImageIndex()
 		if err != nil {
+			close(progressUpdate)
 			return err
 		}
 
@@ -177,6 +178,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 	default:
 		image, err := desc.Image()
 		if err != nil {
+			close(progressUpdate)
 			return err
 		}
 
@@ -271,24 +273,23 @@ func getImageSizeByManifestIndex(tt v1.ImageIndex) (int64, error) {
 	}
 
 	for _, child := range children {
-		child := child
-		switch child.(type) {
+		switch typedChild := child.(type) {
 		case v1.ImageIndex:
-			size, err := getImageSizeByManifestIndex(child.(v1.ImageIndex))
+			size, err := getImageSizeByManifestIndex(typedChild)
 			if err != nil {
 				return 0, err
 			}
 			totalSize += size
 
 		case v1.Image:
-			imageSize, err := getImageSizeByImageManifest(child.(v1.Image))
+			imageSize, err := getImageSizeByImageManifest(typedChild)
 			if err != nil {
 				return 0, err
 			}
 			totalSize += imageSize
 
 		case v1.Layer:
-			layerSize, err := child.(v1.Layer).Size()
+			layerSize, err := typedChild.Size()
 			if err != nil {
 				return 0, err
 			}
