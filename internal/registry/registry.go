@@ -15,6 +15,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -123,13 +124,18 @@ func DeleteImage(imageName string) error {
 	return remote.Delete(digest)
 }
 
-func CacheImage(imageName string, desc *remote.Descriptor, architectures []string, callback func(v1.Update)) error {
+// Perform an image caching, and update the caching progress
+// callback: Local cache registry write progress update call back. The total size written to the cache registry may be less then the total size of the image, if there are duplicated or existing layer already.
+// onUpdateTotalSize: Total image size callback at the end of the caching. Size of all layers will be included, regardless whether they are already in cache registry.
+func CacheImage(imageName string, desc *remote.Descriptor, architectures []string, callback func(v1.Update), onUpdateTotalSize func(int64)) error {
+
 	destRef, err := parseLocalReference(imageName)
 	if err != nil {
 		return err
 	}
 
 	progressUpdate := make(chan v1.Update, 100)
+
 	go func() {
 		for update := range progressUpdate {
 			if callback != nil {
@@ -157,6 +163,17 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 		if err := remote.WriteIndex(destRef, filteredIndex, remote.WithProgress(progressUpdate)); err != nil {
 			return err
 		}
+
+		if onUpdateTotalSize != nil {
+			// Calculate total extracted size for multi-arch images
+			totalSize, err := getImageSizeByManifestIndex(filteredIndex)
+			if err != nil {
+				return nil
+			}
+
+			onUpdateTotalSize(totalSize)
+		}
+
 	default:
 		image, err := desc.Image()
 		if err != nil {
@@ -166,9 +183,120 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 		if err := remote.Write(destRef, image, remote.WithProgress(progressUpdate)); err != nil {
 			return err
 		}
+
+		if onUpdateTotalSize != nil {
+			var totalSize int64
+
+			// We will ignore the size of the manifest, as well as the config file.
+			// Only blob size is calculated.
+			// The code snippet to include config and manifest file size is being kept here.
+			/*
+
+				manifestSize, err := image.Size()
+				if err != nil {
+					return nil
+				}
+				totalSize += manifestSize
+				config, err := image.Manifest()
+				if err != nil {
+					return nil
+				}
+				totalSize += config.Config.Size
+			*/
+
+			// Get layers and track progress for each
+			layers, err := image.Layers()
+			if err != nil {
+				return nil // Ignore
+			}
+
+			for _, layer := range layers {
+				size, err := layer.Size()
+				if err != nil {
+					return nil
+				}
+				totalSize += size
+			}
+
+			onUpdateTotalSize(totalSize)
+		}
 	}
 
 	return nil
+}
+
+func getImageSizeByImageManifest(im v1.Image) (int64, error) {
+	var totalSize int64
+	totalSize = 0
+
+	// We will ignore the size of manifest file here. The code snippet is list below for information.
+	/*
+		manifestSize, err := im.Size()
+		if err != nil {
+			return 0, err
+		}
+		totalSize += manifestSize
+	*/
+
+	layers, err := im.Layers()
+	if err != nil {
+		return 0, err
+	}
+	for _, layer := range layers {
+		layerSize, err := layer.Size()
+		if err != nil {
+			return 0, err
+		}
+		totalSize += layerSize
+	}
+	return totalSize, nil
+}
+
+// Reference: https://github.com/google/go-containerregistry/blob/59a4b85930392a30c39462519adc8a2026d47181/pkg/v1/remote/pusher.go#L380
+func getImageSizeByManifestIndex(tt v1.ImageIndex) (int64, error) {
+	var totalSize int64
+	totalSize = 0
+
+	// We will ignore the size of manifest file here. The code snippet is list below for information.
+	/*
+		manifestSize, err := tt.Size()
+		if err != nil {
+			return 0, err
+		}
+		totalSize += manifestSize
+	*/
+	children, err := partial.Manifests(tt)
+	if err != nil {
+		return 0, err
+	}
+
+	for _, child := range children {
+		child := child
+		switch child.(type) {
+		case v1.ImageIndex:
+			size, err := getImageSizeByManifestIndex(child.(v1.ImageIndex))
+			if err != nil {
+				return 0, err
+			}
+			totalSize += size
+
+		case v1.Image:
+			imageSize, err := getImageSizeByImageManifest(child.(v1.Image))
+			if err != nil {
+				return 0, err
+			}
+			totalSize += imageSize
+
+		case v1.Layer:
+			layerSize, err := child.(v1.Layer).Size()
+			if err != nil {
+				return 0, err
+			}
+			totalSize += layerSize
+		}
+	}
+
+	return totalSize, nil
 }
 
 func GetLocalDescriptor(imageName string) (*remote.Descriptor, error) {
