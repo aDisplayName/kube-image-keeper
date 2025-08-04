@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/distribution/reference"
@@ -344,9 +345,13 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 		return err
 	}
 
+	var statusLock sync.Mutex
+
 	lastUpdateTime := time.Now()
 	lastWriteComplete := int64(0)
+	totalSizeAvailable := false
 	onUpdated := func(update v1.Update) {
+
 		needUpdate := false
 		if lastWriteComplete != update.Complete && update.Complete == update.Total {
 			// Update is needed whenever the writing complmetes.
@@ -357,7 +362,9 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 			// Update is needed if last update is more than 5 seconds ago
 			needUpdate = true
 		}
-		if needUpdate {
+
+		statusLock.Lock()
+		if needUpdate && !totalSizeAvailable {
 			updateStatus(r.Client, cachedImage, desc, func(status *kuikv1alpha1.CachedImageStatus) {
 				cachedImage.Status.Progress.Total = update.Total
 				cachedImage.Status.Progress.Available = update.Complete
@@ -365,9 +372,22 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 
 			lastUpdateTime = time.Now()
 		}
+		statusLock.Unlock()
 		lastWriteComplete = update.Complete
 	}
-	err = registry.CacheImage(cachedImage.Spec.SourceImage, desc, r.Architectures, onUpdated)
+
+	onUpdateFinalSize := func(totalSize int64) {
+		statusLock.Lock()
+		totalSizeAvailable = true // Disable future progress update.
+		statusLock.Unlock()
+
+		updateStatus(r.Client, cachedImage, desc, func(status *kuikv1alpha1.CachedImageStatus) {
+			cachedImage.Status.Progress.Total = totalSize
+			cachedImage.Status.Progress.Available = totalSize
+		})
+	}
+
+	err = registry.CacheImage(cachedImage.Spec.SourceImage, desc, r.Architectures, onUpdated, onUpdateFinalSize)
 
 	statusErr = updateStatus(r.Client, cachedImage, desc, func(status *kuikv1alpha1.CachedImageStatus) {
 		if err == nil {
