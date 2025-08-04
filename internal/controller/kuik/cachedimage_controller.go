@@ -364,6 +364,7 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 		}
 
 		statusLock.Lock()
+		defer statusLock.Unlock()
 		if needUpdate && !totalSizeAvailable {
 			updateStatus(r.Client, cachedImage, desc, func(status *kuikv1alpha1.CachedImageStatus) {
 				cachedImage.Status.Progress.Total = update.Total
@@ -372,7 +373,6 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 
 			lastUpdateTime = time.Now()
 		}
-		statusLock.Unlock()
 		lastWriteComplete = update.Complete
 	}
 
