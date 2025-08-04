@@ -2,7 +2,7 @@ package registry
 
 // To perform the test, start a local registry server at port 5000
 //  docker run -it --rm -p 5000:5000 /v host/dir:container/dir registry:2.8
-
+/*
 import (
 	"testing"
 
@@ -35,3 +35,4 @@ func Test_CacheImage_with_server(t *testing.T) {
 	})
 
 }
+*/
