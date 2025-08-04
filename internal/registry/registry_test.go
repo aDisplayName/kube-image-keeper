@@ -324,7 +324,11 @@ func Test_CacheImage(t *testing.T) {
 			onUpdated := func(update v1.Update) {
 				t.Log("Progress Update", update)
 			}
-			err = CacheImage(imageName, desc, []string{"amd64"}, onUpdated, nil)
+
+			onFinal := func(totalSize int64) {
+				t.Log("Total Size", totalSize)
+			}
+			err = CacheImage(imageName, desc, []string{"amd64"}, onUpdated, onFinal)
 			if tt.wantErr != "" {
 				g.Expect(err).To(BeAssignableToTypeOf(tt.errType))
 				g.Expect(err).To(MatchError(ContainSubstring(tt.wantErr)))
