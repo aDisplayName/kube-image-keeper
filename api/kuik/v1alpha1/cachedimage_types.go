@@ -33,11 +33,10 @@ type UsedBy struct {
 	Count int `json:"count,omitempty"`
 }
 
-// Progress contains information about the caching progress
 type Progress struct {
-	// Total is the total size of data to be copied over to local registry cache
+	// Total is the total size of all compressed layer blobs
 	Total int64 `json:"total,omitempty"`
-	// Available is the size of data that has already been copied over to the local registry cache
+	// Available is current size of all compressed layer blobs already written into the cache
 	Available int64 `json:"available,omitempty"`
 }
 
@@ -50,7 +49,7 @@ type CachedImageStatus struct {
 	// UsedBy is the list of pods using this image
 	UsedBy UsedBy `json:"usedBy,omitempty"`
 
-	// Progress contains information about the caching progress
+	// Progress is the current available / total size of compressed layer blobs
 	Progress Progress `json:"progress,omitempty"`
 
 	// Digest is the digest of the cached image

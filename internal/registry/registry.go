@@ -135,7 +135,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 	}
 
 	progressUpdate := make(chan v1.Update, 100)
-
+	// The channel will be closed by remote.Write / remote.WriteIndex call with remote.WithProgress option.
 	go func() {
 		for update := range progressUpdate {
 			if callback != nil {
@@ -166,7 +166,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 		}
 
 		if onUpdateTotalSize != nil {
-			// Calculate total extracted size for multi-arch images
+			// Calculate total compressed size for image blobs
 			totalSize, err := getImageSizeByManifestIndex(filteredIndex)
 			if err != nil {
 				return nil
@@ -174,7 +174,6 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 
 			onUpdateTotalSize(totalSize)
 		}
-
 	default:
 		image, err := desc.Image()
 		if err != nil {
@@ -189,9 +188,9 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 		if onUpdateTotalSize != nil {
 			var totalSize int64
 
-			// We will ignore the size of the manifest, as well as the config file.
+			// We will ignore the size of the manifest, as well as the size of config file.
 			// Only blob size is calculated.
-			// The code snippet to include config and manifest file size is being kept here.
+			// The code snippet to include config and manifest file size is being kept here for future reference.
 			/*
 
 				manifestSize, err := image.Size()
@@ -206,7 +205,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 				totalSize += config.Config.Size
 			*/
 
-			// Get layers and track progress for each
+			// Get layers and calculate total size
 			layers, err := image.Layers()
 			if err != nil {
 				return nil // Ignore

@@ -355,25 +355,44 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 		return err
 	}
 
+	// Prepare callbacks to update progress during caching
 	lastUpdateTime := time.Now()
+	lastWriteComplete := int64(0)
 	onUpdated := func(update v1.Update) {
-		needUpdate := time.Since(lastUpdateTime).Seconds() >= 5 || update.Complete != 0
+
+		needUpdate := false
+		if lastWriteComplete != update.Complete && update.Complete == update.Total {
+			// Update is needed whenever the writing complmetes.
+			needUpdate = true
+		}
+
+		if time.Since(lastUpdateTime).Seconds() >= 5 {
+			// Update is needed if last update is more than 5 seconds ago
+			needUpdate = true
+		}
+
+		statusLock.Lock()
+		defer statusLock.Unlock()
 		if needUpdate && !totalSizeAvailable {
-			statusLock.Lock()
-			defer statusLock.Unlock()
-			cachedImage.Status.Progress.Available = update.Total
-			_ = updateStatusRaw(r.Client, cachedImage, func(status *kuikv1alpha1.CachedImageStatus) {})
+			updateStatus(r.Client, cachedImage, desc, func(status *kuikv1alpha1.CachedImageStatus) {
+				cachedImage.Status.Progress.Total = update.Total
+				cachedImage.Status.Progress.Available = update.Complete
+			})
+
 			lastUpdateTime = time.Now()
 		}
+		lastWriteComplete = update.Complete
 	}
 
 	onUpdateFinalSize := func(totalSize int64) {
 		statusLock.Lock()
-		defer statusLock.Unlock()
-		totalSizeAvailable = true
-		cachedImage.Status.Progress.Total = totalSize
-		cachedImage.Status.Progress.Available = totalSize
-		_ = updateStatusRaw(r.Client, cachedImage, func(status *kuikv1alpha1.CachedImageStatus) {})
+		totalSizeAvailable = true // Disable future progress update.
+		statusLock.Unlock()
+
+		updateStatus(r.Client, cachedImage, desc, func(status *kuikv1alpha1.CachedImageStatus) {
+			cachedImage.Status.Progress.Total = totalSize
+			cachedImage.Status.Progress.Available = totalSize
+		})
 	}
 
 	err = registry.CacheImage(cachedImage.Spec.SourceImage, desc, r.Architectures, onUpdated, onUpdateFinalSize)
