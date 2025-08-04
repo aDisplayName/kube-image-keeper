@@ -272,23 +272,24 @@ func getImageSizeByManifestIndex(tt v1.ImageIndex) (int64, error) {
 	}
 
 	for _, child := range children {
-		switch typedChild := child.(type) {
+		child := child
+		switch child.(type) {
 		case v1.ImageIndex:
-			size, err := getImageSizeByManifestIndex(typedChild)
+			size, err := getImageSizeByManifestIndex(child.(v1.ImageIndex))
 			if err != nil {
 				return 0, err
 			}
 			totalSize += size
 
 		case v1.Image:
-			imageSize, err := getImageSizeByImageManifest(typedChild)
+			imageSize, err := getImageSizeByImageManifest(child.(v1.Image))
 			if err != nil {
 				return 0, err
 			}
 			totalSize += imageSize
 
 		case v1.Layer:
-			layerSize, err := typedChild.Size()
+			layerSize, err := child.(v1.Layer).Size()
 			if err != nil {
 				return 0, err
 			}
