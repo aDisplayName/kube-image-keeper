@@ -1,9 +1,9 @@
 # Build the manager binary
-FROM --platform=${BUILDPLATFORM} golang:1.23-alpine3.20 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.26-alpine3.20 AS builder
 
 WORKDIR /workspace
 
-RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.15.0
+RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod

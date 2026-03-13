@@ -11,7 +11,7 @@ It saves the container images used by your pods in its own local registry so tha
 ## Upgrading
 
 ### From 1.6.0 o 1.7.0
- 
+
 ***ACTION REQUIRED***
 
 To follow Helm3 best pratices, we moved `cachedimage` and `repository` custom resources definition from the helm templates directory to the dedicated `crds` directory.
@@ -159,7 +159,7 @@ You can use Helm to generate plain YAML files and then deploy these YAML files w
 ```bash
 helm template --namespace kuik-system \
      kube-image-keeper kube-image-keeper \
-     --repo https://adisplayname.github.io/helm-charts/charts \
+     --repo https://charts.enix.io/ \
      > /tmp/kuik.yaml
 kubectl create namespace kuik-system
 kubectl apply -f /tmp/kuik.yaml --namespace kuik-system
@@ -188,7 +188,7 @@ For instance, to extend the expiration delay to 3 months (90 days), you can depl
 helm upgrade --install \
      --create-namespace --namespace kuik-system \
      kube-image-keeper kube-image-keeper \
-     --repo https://adisplayname.github.io/helm-charts/charts \
+     --repo https://charts.enix.io/ \
      --set cachedImagesExpiryDelay=90
 ```
 
@@ -210,6 +210,27 @@ Keep in mind that kuik will ignore pods scheduled into its own namespace or in t
 > [...]
 > Accidentally mutating or rejecting requests in the kube-system namespace may cause the control plane components to stop functioning or introduce unknown behavior.
 
+### Image filtering
+
+Once pods have been filtered, you can filter images present in those pods using `.controllers.webhook.ignoredImages` and `.controllers.webhook.acceptedImages` regexps. Images matching ignored patterns will be removed from the list, and then only images matching accepted patterns (if some are defined) will be rewritten. For instance, given a list of images and a image filtering configuration:
+
+- `docker.io/library/nginx:stable-alpine`
+- `docker.io/library/nginx:1.27`
+- `nixery.dev/curl/kubectl`
+
+```yaml
+controllers:
+  webhook:
+    ignoredImages:
+      - "^.+:[\\w-]*alpine[\\w-]*$"
+    acceptedImages:
+      - "^docker\\.io/.*"
+```
+
+Performing the "ignore" step will remove the matching `docker.io/library/nginx:stable-alpine` image. And performing the accept step will remove the not matching `nixery.dev/curl/kubectl` image. Leaving us with only the `docker.io/library/nginx:1.27` image.
+
+In the case of an empty `acceptedImages`, all images are accepted. In the case of an empty `ignoredImages`, none is ignored.
+
 #### Image pull policy
 
 In the case of a container configured with `imagePullPolicy: Never`, the container will always be filtered out as it makes no sense to cache an image that would never be cached and always read from the disk.
@@ -227,7 +248,7 @@ Note that persistence requires your cluster to have some PersistentVolumes. If y
 Sometimes, you want images to stay cached even when they are not used anymore (for instance when you run a workload for a fixed amount of time, stop it, and run it again later). You can choose to prevent `CachedImages` from expiring by manually setting the `spec.retain` flag to `true` like shown below:
 
 ```yaml
-apiVersion: kuik.enix.io/v1alpha1ext1
+apiVersion: kuik.enix.io/v1alpha1
 kind: CachedImage
 metadata:
   name: docker.io-library-nginx-1.25

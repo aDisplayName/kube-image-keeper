@@ -2,6 +2,7 @@ package kuik
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
+	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
 	kuikController "github.com/adisplayname/kube-image-keeper/internal/controller"
 	"github.com/adisplayname/kube-image-keeper/internal/registry"
 )
@@ -37,9 +38,9 @@ type RepositoryReconciler struct {
 	Recorder record.EventRecorder
 }
 
-//+kubebuilder:rbac:groups=kuik.enix.io,resources=repositories,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kuik.enix.io,resources=repositories/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kuik.enix.io,resources=repositories/finalizers,verbs=update
+// +kubebuilder:rbac:groups=kuik.enix.io,resources=repositories,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kuik.enix.io,resources=repositories/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=kuik.enix.io,resources=repositories/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -49,7 +50,7 @@ type RepositoryReconciler struct {
 // the user.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
@@ -149,6 +150,9 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if repository.Spec.UpdateInterval != nil {
+		if repository.Spec.UpdateInterval.Duration <= 0 {
+			return ctrl.Result{}, fmt.Errorf("invalid UpdateInterval: %s", repository.Spec.UpdateInterval.String())
+		}
 		nextUpdate := repository.Status.LastUpdate.Add(repository.Spec.UpdateInterval.Duration)
 		if time.Now().After(nextUpdate) {
 			log.Info("updating repository")
@@ -227,7 +231,8 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		cachedImage := rawObj.(*kuikv1alpha1.CachedImage)
 
 		owners := cachedImage.GetOwnerReferences()
-		for _, owner := range owners {
+		if len(owners) > 0 {
+			owner := owners[0]
 			if owner.APIVersion != kuikv1alpha1.GroupVersion.String() || owner.Kind != "Repository" {
 				return nil
 			}
@@ -242,6 +247,7 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kuikv1alpha1.Repository{}).
+		Named("kuik-repository").
 		Watches(
 			&kuikv1alpha1.CachedImage{},
 			handler.EnqueueRequestsFromMapFunc(r.repositoryWithDeletingCachedImages),

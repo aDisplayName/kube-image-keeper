@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
+	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
 	"github.com/adisplayname/kube-image-keeper/internal/metrics"
 	"github.com/adisplayname/kube-image-keeper/internal/registry"
 	"github.com/distribution/reference"
@@ -130,7 +130,9 @@ func (p *Proxy) Run(proxyAddr string) chan struct{} {
 			panic(err)
 		}
 		finished <- struct{}{}
-		p.exporter.Shutdown()
+		if err := p.exporter.Shutdown(); err != nil {
+			panic(err)
+		}
 	}()
 
 	go func() {

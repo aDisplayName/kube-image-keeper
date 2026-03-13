@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	_ "crypto/sha256"
-	"strings"
 
 	"golang.org/x/exp/maps"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -11,9 +10,9 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 
-	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
+	"github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
+	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
 	"github.com/adisplayname/kube-image-keeper/internal/registry"
-	"github.com/distribution/reference"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,9 +37,9 @@ type PodReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=pods/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=core,resources=pods/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=pods/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -50,7 +49,7 @@ type PodReconciler struct {
 // the user.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
@@ -140,6 +139,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			_, ok := object.GetLabels()[LabelManagedName]
 			return ok
 		}))).
+		Named("core-pod").
 		Watches(
 			&kuikv1alpha1.CachedImage{},
 			handler.EnqueueRequestsFromMapFunc(r.podsWithDeletingCachedImages),
@@ -162,7 +162,13 @@ func (r *PodReconciler) podsWithDeletingCachedImages(ctx context.Context, obj cl
 	}
 
 	var podList corev1.PodList
-	podRequirements, _ := labels.NewRequirement(LabelManagedName, selection.Equals, []string{"true"})
+	podRequirements, err := labels.NewRequirement(LabelManagedName, selection.Equals, []string{"true"})
+	if err != nil {
+		// errors cannot be handled in a better way for now (see https://github.com/kubernetes-sigs/controller-runtime/issues/1996)
+		// maybe we don't need to enqueue all Pods related to this CachedImage but only those in the status UsedBy
+		log.Error(err, "could not list pods")
+		return nil
+	}
 	selector := labels.NewSelector()
 	selector = selector.Add(*podRequirements)
 	if err := r.List(ctx, &podList, &client.ListOptions{
@@ -250,14 +256,9 @@ func desiredCachedImagesForContainers(ctx context.Context, containers []corev1.C
 }
 
 func cachedImageFromSourceImage(sourceImage string) (*kuikv1alpha1.CachedImage, error) {
-	ref, err := reference.ParseAnyReference(sourceImage)
+	sanitizedName, err := v1alpha1.CachedImageNameFromSourceImage(sourceImage)
 	if err != nil {
 		return nil, err
-	}
-
-	sanitizedName := registry.SanitizeName(ref.String())
-	if !strings.Contains(sourceImage, ":") {
-		sanitizedName += "-latest"
 	}
 
 	cachedImage := kuikv1alpha1.CachedImage{

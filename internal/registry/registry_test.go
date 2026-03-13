@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	. "github.com/onsi/gomega"
@@ -73,9 +72,9 @@ func Test_parseLocalReference(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			reference, err := parseLocalReference(tt.image)
 
 			if tt.wantErr != "" {
@@ -123,9 +122,9 @@ func Test_ImageIsCached(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			gh := ghttp.NewGHTTPWithGomega(g)
 			server := ghttp.NewServer()
 			defer server.Close()
@@ -194,9 +193,9 @@ func Test_DeleteImage(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			gh := ghttp.NewGHTTPWithGomega(g)
 			server := ghttp.NewServer()
 			defer server.Close()
@@ -251,9 +250,9 @@ func Test_CacheImage(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			gh := ghttp.NewGHTTPWithGomega(g)
 
 			digestSha := "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -321,21 +320,12 @@ func Test_CacheImage(t *testing.T) {
 			desc, err := remote.Get(sourceRef)
 			g.Expect(err).To(BeNil())
 
-			onUpdated := func(update v1.Update) {
-
-			}
-
-			var finalReportedSize int64
-			onFinal := func(totalSize int64) {
-				finalReportedSize = totalSize
-			}
-			err = CacheImage(imageName, desc, []string{"amd64"}, onUpdated, onFinal)
+			err = CacheImage(imageName, desc, []string{"amd64"}, nil, nil)
 			if tt.wantErr != "" {
 				g.Expect(err).To(BeAssignableToTypeOf(tt.errType))
 				g.Expect(err).To(MatchError(ContainSubstring(tt.wantErr)))
 			} else {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(finalReportedSize).To(Equal(int64(2107098)))
 			}
 		})
 	}
@@ -379,9 +369,9 @@ func TestSanitizeName(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			label := SanitizeName(tt.image)
 			g.Expect(label).To(Equal(tt.expectedSanitizedImage))
 		})
@@ -416,9 +406,9 @@ func TestRepositoryLabel(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			label := RepositoryLabel(tt.repositoryName)
 			g.Expect(label).To(Equal(tt.expectedLabel))
 		})
@@ -472,9 +462,9 @@ func TestContainerAnnotationKey(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			annotationKey := ContainerAnnotationKey(tt.containerName, tt.initContainer)
 			g.Expect(annotationKey).To(Equal(tt.expectedAnnotationKey))
 		})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
+	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
 	kuikController "github.com/adisplayname/kube-image-keeper/internal/controller"
 	"github.com/adisplayname/kube-image-keeper/internal/controller/core"
 	"github.com/adisplayname/kube-image-keeper/internal/registry"
@@ -62,11 +63,11 @@ type CachedImageReconciler struct {
 	RootCAs            *x509.CertPool
 }
 
-//+kubebuilder:rbac:groups=kuik.enix.io,resources=cachedimages,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kuik.enix.io,resources=cachedimages/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kuik.enix.io,resources=cachedimages/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
-//+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=kuik.enix.io,resources=cachedimages,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kuik.enix.io,resources=cachedimages/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=kuik.enix.io,resources=cachedimages/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -76,7 +77,7 @@ type CachedImageReconciler struct {
 // the user.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
@@ -241,8 +242,14 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		putImageInCache = false
 	}
 	if putImageInCache {
+		upstream, err := cachedImage.Upstream()
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
 		r.Recorder.Eventf(&cachedImage, "Normal", "Caching", "Start caching image %s", cachedImage.Spec.SourceImage)
 		err = r.cacheImage(&cachedImage)
+		kuikController.ImageCachingRequest.WithLabelValues(strconv.FormatBool(err == nil), upstream).Inc()
 		if err != nil {
 			log.Error(err, "failed to cache image")
 			r.Recorder.Eventf(&cachedImage, "Warning", "CacheFailed", "Failed to cache image %s, reason: %s", cachedImage.Spec.SourceImage, err)
@@ -310,6 +317,9 @@ func getSanitizedName(cachedImage *kuikv1alpha1.CachedImage) (string, error) {
 }
 
 func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage) error {
+	var statusLock sync.Mutex
+	totalSizeAvailable := false
+
 	if err := r.patchPhase(cachedImage, cachedImagePhaseSynchronizing); err != nil {
 		return err
 	}
@@ -345,38 +355,25 @@ func (r *CachedImageReconciler) cacheImage(cachedImage *kuikv1alpha1.CachedImage
 		return err
 	}
 
-	var statusLock sync.Mutex
-
 	lastUpdateTime := time.Now()
-	lastWriteComplete := int64(0)
-	totalSizeAvailable := false
 	onUpdated := func(update v1.Update) {
-
-		isCompleted := lastWriteComplete != update.Complete && update.Complete == update.Total
-		needUpdate := time.Since(lastUpdateTime).Seconds() >= 5 || isCompleted
-
-		statusLock.Lock()
-		defer statusLock.Unlock()
+		needUpdate := time.Since(lastUpdateTime).Seconds() >= 5 || update.Complete != 0
 		if needUpdate && !totalSizeAvailable {
-			_ = updateStatus(r.Client, cachedImage, desc, func(status *kuikv1alpha1.CachedImageStatus) {
-				cachedImage.Status.Progress.Total = update.Total
-				cachedImage.Status.Progress.Available = update.Complete
-			})
-
+			statusLock.Lock()
+			defer statusLock.Unlock()
+			cachedImage.Status.Progress.Available = update.Total
+			_ = updateStatusRaw(r.Client, cachedImage, func(status *kuikv1alpha1.CachedImageStatus) {})
 			lastUpdateTime = time.Now()
 		}
-		lastWriteComplete = update.Complete
 	}
 
 	onUpdateFinalSize := func(totalSize int64) {
 		statusLock.Lock()
-		totalSizeAvailable = true // Disable future progress update.
-		statusLock.Unlock()
-
-		_ = updateStatus(r.Client, cachedImage, desc, func(status *kuikv1alpha1.CachedImageStatus) {
-			cachedImage.Status.Progress.Total = totalSize
-			cachedImage.Status.Progress.Available = totalSize
-		})
+		defer statusLock.Unlock()
+		totalSizeAvailable = true
+		cachedImage.Status.Progress.Total = totalSize
+		cachedImage.Status.Progress.Available = totalSize
+		_ = updateStatusRaw(r.Client, cachedImage, func(status *kuikv1alpha1.CachedImageStatus) {})
 	}
 
 	err = registry.CacheImage(cachedImage.Spec.SourceImage, desc, r.Architectures, onUpdated, onUpdateFinalSize)
@@ -433,13 +430,11 @@ func (r *CachedImageReconciler) SetupWithManager(mgr ctrl.Manager, maxConcurrent
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kuikv1alpha1.CachedImage{}).
+		Named("kuik-cachedimage").
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.cachedImagesRequestFromPod),
 			builder.WithPredicates(predicate.Funcs{
-				// GenericFunc: func(e event.GenericEvent) bool {
-				// 	return true
-				// },
 				DeleteFunc: func(e event.DeleteEvent) bool {
 					pod := e.Object.(*corev1.Pod)
 					var currentPod corev1.Pod
