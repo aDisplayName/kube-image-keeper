@@ -6,8 +6,8 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.10.1
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v28.4.0+incompatible
-	github.com/docker/docker v28.4.0+incompatible
+	github.com/docker/cli v29.3.0+incompatible
+	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-logr/logr v1.4.3
