@@ -161,7 +161,7 @@ var _ = Describe("Pod Controller", func() {
 			}, timeout, interval).Should(HaveLen(len(podStub.Spec.Containers) + len(podStub.Spec.InitContainers)))
 
 			annotationsImages := []string{}
-			for _, annotation := range podStub.ObjectMeta.Annotations {
+			for _, annotation := range podStub.Annotations {
 				annotationsImages = append(annotationsImages, annotation)
 			}
 			cachedImages := []string{}

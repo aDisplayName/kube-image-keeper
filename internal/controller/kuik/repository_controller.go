@@ -74,7 +74,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	repository.Status.Images = len(cachedImageList.Items)
 
-	if !repository.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !repository.DeletionTimestamp.IsZero() {
 		if repository.Status.Phase != "Terminating" {
 			r.Recorder.Eventf(&repository, "Normal", "Terminating", "Waiting for cached images to be deleted")
 			err := r.UpdateStatus(ctx, &repository, []metav1.Condition{{
@@ -107,9 +107,10 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	pullingCount := 0
 	errImagePullCount := 0
 	for _, cachedImage := range cachedImageList.Items {
-		if cachedImage.Status.Phase == cachedImagePhasePulling || cachedImage.Status.Phase == cachedImagePhaseSynchronizing {
+		switch cachedImage.Status.Phase {
+		case cachedImagePhasePulling, cachedImagePhaseSynchronizing:
 			pullingCount++
-		} else if cachedImage.Status.Phase == cachedImagePhaseErrImagePull {
+		case cachedImagePhaseErrImagePull:
 			errImagePullCount++
 		}
 	}
@@ -208,11 +209,12 @@ func (r *RepositoryReconciler) UpdateStatus(ctx context.Context, repository *kui
 	}
 
 	conditionReady := meta.FindStatusCondition(repository.Status.Conditions, typeReadyRepository)
-	if conditionReady.Status == metav1.ConditionTrue {
+	switch conditionReady.Status {
+	case metav1.ConditionTrue:
 		repository.Status.Phase = "Ready"
-	} else if conditionReady.Status == metav1.ConditionFalse {
+	case metav1.ConditionFalse:
 		repository.Status.Phase = conditionReady.Reason
-	} else {
+	default:
 		repository.Status.Phase = ""
 	}
 

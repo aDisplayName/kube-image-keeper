@@ -40,7 +40,7 @@ func (b *Bearer) GetToken() string {
 func NewBearer(endpoint string, path string) (*Bearer, error) {
 	response, err := http.Get(endpoint + path)
 	if response != nil && response.Body != nil {
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 	}
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func NewBearer(endpoint string, path string) (*Bearer, error) {
 
 		response, err := http.Get(url)
 		if response != nil && response.Body != nil {
-			defer response.Body.Close()
+			defer func() { _ = response.Body.Close() }()
 		}
 		if err != nil {
 			return nil, err

@@ -80,7 +80,7 @@ func options(ref name.Reference, keychain authn.Keychain, insecureRegistries []s
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 
-	if slices.Contains(insecureRegistries, ref.Context().Registry.RegistryStr()) {
+	if slices.Contains(insecureRegistries, ref.Context().RegistryStr()) {
 		transport.TLSClientConfig.InsecureSkipVerify = true
 	}
 
@@ -273,23 +273,23 @@ func getImageSizeByManifestIndex(tt v1.ImageIndex) (int64, error) {
 
 	for _, child := range children {
 		child := child
-		switch child.(type) {
+		switch child := child.(type) {
 		case v1.ImageIndex:
-			size, err := getImageSizeByManifestIndex(child.(v1.ImageIndex))
+			size, err := getImageSizeByManifestIndex(child)
 			if err != nil {
 				return 0, err
 			}
 			totalSize += size
 
 		case v1.Image:
-			imageSize, err := getImageSizeByImageManifest(child.(v1.Image))
+			imageSize, err := getImageSizeByImageManifest(child)
 			if err != nil {
 				return 0, err
 			}
 			totalSize += imageSize
 
 		case v1.Layer:
-			layerSize, err := child.(v1.Layer).Size()
+			layerSize, err := child.Size()
 			if err != nil {
 				return 0, err
 			}

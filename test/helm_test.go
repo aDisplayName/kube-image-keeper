@@ -361,11 +361,11 @@ func TestHelmTemplate(t *testing.T) {
 				}),
 				"clusterrole.yaml": makeAssertion(func(t *testing.T, obj *rbacv1.ClusterRole) {
 					assert := assert.New(t)
-					assert.Equal(obj.ObjectMeta.Name, "custom-fullname-controllers")
+					assert.Equal(obj.Name, "custom-fullname-controllers")
 				}),
 				"clusterrolebinding.yaml": makeAssertion(func(t *testing.T, obj *rbacv1.ClusterRoleBinding) {
 					assert := assert.New(t)
-					assert.Equal(obj.ObjectMeta.Name, "custom-fullname-controllers")
+					assert.Equal(obj.Name, "custom-fullname-controllers")
 					assert.Equal(obj.RoleRef.Name, "custom-fullname-controllers")
 					assert.Equal(obj.Subjects[0].Name, "serviceaccount123")
 				}),
@@ -413,15 +413,15 @@ func TestHelmTemplate(t *testing.T) {
 			assertions: map[string](func(t *testing.T, output string)){
 				"serviceaccount.yaml": makeAssertion(func(t *testing.T, obj *v1.ServiceAccount) {
 					assert := assert.New(t)
-					assert.Equal(obj.ObjectMeta.Annotations["custom"], "abc")
-					assert.Equal(obj.ObjectMeta.Labels["foo"], "bar")
-					assert.Equal(obj.ObjectMeta.Labels["app.kubernetes.io/name"], "kube-image-keeper")
+					assert.Equal(obj.Annotations["custom"], "abc")
+					assert.Equal(obj.Labels["foo"], "bar")
+					assert.Equal(obj.Labels["app.kubernetes.io/name"], "kube-image-keeper")
 				}),
 				"registry-serviceaccount.yaml": makeAssertion(func(t *testing.T, obj *v1.ServiceAccount) {
 					assert := assert.New(t)
-					assert.Equal(obj.ObjectMeta.Annotations["custom"], "def")
-					assert.Equal(obj.ObjectMeta.Labels["baz"], "qux")
-					assert.Equal(obj.ObjectMeta.Labels["app.kubernetes.io/name"], "kube-image-keeper")
+					assert.Equal(obj.Annotations["custom"], "def")
+					assert.Equal(obj.Labels["baz"], "qux")
+					assert.Equal(obj.Labels["app.kubernetes.io/name"], "kube-image-keeper")
 				}),
 			},
 		},

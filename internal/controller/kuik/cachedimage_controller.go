@@ -14,7 +14,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -129,7 +128,7 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Remove image from registry when CachedImage is being deleted, finalizer is removed after it
-	if !cachedImage.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !cachedImage.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(&cachedImage, cachedImageFinalizerName) {
 			if err := r.patchPhase(&cachedImage, cachedImagePhaseTerminating); err != nil {
 				return ctrl.Result{}, err
@@ -237,10 +236,8 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Adding image to registry
-	putImageInCache := true
-	if isCached && !forceUpdate {
-		putImageInCache = false
-	}
+	putImageInCache := !isCached || forceUpdate
+
 	if putImageInCache {
 		upstream, err := cachedImage.Upstream()
 		if err != nil {
@@ -498,7 +495,7 @@ func (r *CachedImageReconciler) updatePodCount(ctx context.Context, cachedImage 
 
 	err = r.Status().Update(ctx, cachedImage)
 	if err != nil {
-		if statusErr, ok := err.(*errors.StatusError); ok && statusErr.Status().Code == http.StatusConflict {
+		if statusErr, ok := err.(*apierrors.StatusError); ok && statusErr.Status().Code == http.StatusConflict {
 			requeue = true
 		}
 		return

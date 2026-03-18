@@ -178,7 +178,7 @@ func (c *ControllerCollector) getContainersWithCachedImageMetric() (*prometheus.
 	for _, pod := range podList.Items {
 		for _, container := range pod.Spec.Containers {
 			annotationKey := registry.ContainerAnnotationKey(container.Name, false)
-			if sourceImage, ok := pod.ObjectMeta.Annotations[annotationKey]; ok {
+			if sourceImage, ok := pod.Annotations[annotationKey]; ok {
 				cachedImageName, err := v1alpha1.CachedImageNameFromSourceImage(sourceImage)
 				if err != nil {
 					return nil, err

@@ -76,12 +76,12 @@ var pullSecrets = map[string]corev1.Secret{
 	},
 }
 
-var clientError = errors.New("an error occurred")
+var errClientError = errors.New("an error occurred")
 var _, invalidJsonError = config.LoadFromReader(bytes.NewReader([]byte("invalid")))
 
 func (m mockClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	if m.produceError {
-		return clientError
+		return errClientError
 	}
 
 	if key.Namespace != m.namespace {
@@ -306,7 +306,7 @@ func TestGetPullSecrets(t *testing.T) {
 				"foo",
 			},
 			clientProduceError: true,
-			wantErr:            clientError,
+			wantErr:            errClientError,
 		},
 	}
 

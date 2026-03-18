@@ -208,37 +208,37 @@ func (p *Proxy) proxyRegistry(c *gin.Context, endpoint string, endpointIsOrigin 
 		proxy.Transport = transport
 	}
 
-	proxy.Director = func(req *http.Request) {
-		req.Header = c.Request.Header
-		req.Host = remote.Host
-		req.URL.Scheme = remote.Scheme
-		req.URL.Host = remote.Host
+	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
+		pr.Out.Header = pr.In.Header
+		pr.Out.Host = remote.Host
+		pr.Out.URL.Scheme = remote.Scheme
+		pr.Out.URL.Host = remote.Host
 
 		// In the cache registry, images are prefixed with their origin registry.
 		// Thus, when proxying the cache, we need to keep the origin part, but we have to discard it when proxying the origin
-		pathParts := strings.Split(req.URL.Path, "/")
+		pathParts := strings.Split(pr.Out.URL.Path, "/")
 		if endpointIsOrigin && len(pathParts) > 2 {
-			req.URL.Path = "/v2/" + strings.Join(pathParts[3:], "/")
+			pr.Out.URL.Path = "/v2/" + strings.Join(pathParts[3:], "/")
 		}
 
 		// To prevent "X-Forwarded-For: 127.0.0.1, 127.0.0.1" which produce a HTTP 400 error
-		req.Header.Del("X-Forwarded-For")
+		pr.Out.Header.Del("X-Forwarded-For")
 
 		if transport == nil {
-			bearer, err := NewBearer(endpoint, req.URL.Path)
+			bearer, err := NewBearer(endpoint, pr.Out.URL.Path)
 			if err != nil {
 				proxyError = err
 				return
 			}
 			token := bearer.GetToken()
 			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
+				pr.Out.Header.Set("Authorization", "Bearer "+token)
 			}
 		}
 	}
 
 	proxy.ModifyResponse = func(resp *http.Response) error {
-		if endpoint == registry.Protocol+registry.Endpoint && !(resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusTemporaryRedirect) {
+		if endpoint == registry.Protocol+registry.Endpoint && (resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusTemporaryRedirect) {
 			return errors.New(resp.Status)
 		}
 		return nil
@@ -314,7 +314,7 @@ func (p *Proxy) getAuthentifiedTransportWithKeychain(repository name.Repository,
 
 	originalTransport := http.DefaultTransport.(*http.Transport).Clone()
 	originalTransport.TLSClientConfig = &tls.Config{RootCAs: p.rootCAs}
-	if slices.Contains(p.insecureRegistries, repository.Registry.RegistryStr()) {
+	if slices.Contains(p.insecureRegistries, repository.RegistryStr()) {
 		originalTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
