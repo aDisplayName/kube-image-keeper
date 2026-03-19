@@ -159,7 +159,7 @@ You can use Helm to generate plain YAML files and then deploy these YAML files w
 ```bash
 helm template --namespace kuik-system \
      kube-image-keeper kube-image-keeper \
-     --repo https://adisplayname.github.io/helm-charts/chart \
+     --repo https://adisplayname.github.io/helm-charts/charts \
      > /tmp/kuik.yaml
 kubectl create namespace kuik-system
 kubectl apply -f /tmp/kuik.yaml --namespace kuik-system
