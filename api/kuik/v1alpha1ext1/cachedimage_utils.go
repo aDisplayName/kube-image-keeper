@@ -1,16 +1,31 @@
-package v1alpha1
+package v1alpha1ext1
 
 import (
 	"context"
-	"strings"
 
-	"github.com/distribution/reference"
 	"github.com/adisplayname/kube-image-keeper/internal/registry"
+	"github.com/distribution/reference"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func CachedImageNameFromSourceImage(sourceImage string) (string, error) {
+	named, err := reference.ParseNormalizedNamed(sourceImage)
+	if err != nil {
+		return "", err
+	}
+
+	tag := "latest"
+	if tagged, ok := named.(reference.Tagged); ok {
+		tag = tagged.Tag()
+	} else if digested, ok := named.(reference.Digested); ok {
+		tag = digested.Digest().String()
+	}
+
+	return registry.SanitizeName(named.Name() + "-" + tag), nil
+}
 
 func (r *CachedImage) Repository() (reference.Named, error) {
 	named, err := reference.ParseNormalizedNamed(r.Spec.SourceImage)
@@ -19,15 +34,6 @@ func (r *CachedImage) Repository() (reference.Named, error) {
 	}
 
 	return named, nil
-}
-
-func (r *CachedImage) Upstream() (string, error) {
-	named, err := r.Repository()
-	if err != nil {
-		return "", err
-	}
-
-	return reference.Domain(named), nil
 }
 
 func (r *CachedImage) GetPullSecrets(apiReader client.Reader) ([]corev1.Secret, error) {
@@ -50,16 +56,11 @@ func (r *CachedImage) GetPullSecrets(apiReader client.Reader) ([]corev1.Secret, 
 	return pullSecrets, nil
 }
 
-func CachedImageNameFromSourceImage(sourceImage string) (string, error) {
-	ref, err := reference.ParseAnyReference(sourceImage)
+func (r *CachedImage) Upstream() (string, error) {
+	named, err := r.Repository()
 	if err != nil {
 		return "", err
 	}
 
-	sanitizedName := registry.SanitizeName(ref.String())
-	if !strings.Contains(sourceImage, ":") {
-		sanitizedName += "-latest"
-	}
-
-	return sanitizedName, nil
+	return reference.Domain(named), nil
 }

@@ -19,7 +19,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
+	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
 	// +kubebuilder:scaffold:imports
 )
 

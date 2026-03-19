@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
+	"github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
 	"github.com/adisplayname/kube-image-keeper/internal/controller/core"
 	kuikMetrics "github.com/adisplayname/kube-image-keeper/internal/metrics"
 	"github.com/adisplayname/kube-image-keeper/internal/registry"
@@ -122,7 +122,7 @@ func (c *ControllerCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (c *ControllerCollector) getCachedImagesMetric() (*prometheus.GaugeVec, error) {
-	cachedImageList := &v1alpha1.CachedImageList{}
+	cachedImageList := &v1alpha1ext1.CachedImageList{}
 	if err := c.List(context.Background(), cachedImageList); err != nil {
 		return nil, err
 	}
@@ -144,12 +144,12 @@ func (c *ControllerCollector) getCachedImagesMetric() (*prometheus.GaugeVec, err
 }
 
 func (c *ControllerCollector) getContainersWithCachedImageMetric() (*prometheus.GaugeVec, error) {
-	cachedImageList := &v1alpha1.CachedImageList{}
+	cachedImageList := &v1alpha1ext1.CachedImageList{}
 	if err := c.List(context.Background(), cachedImageList); err != nil {
 		return nil, err
 	}
 
-	cachedImages := map[string]v1alpha1.CachedImage{}
+	cachedImages := map[string]v1alpha1ext1.CachedImage{}
 	for _, cachedImage := range cachedImageList.Items {
 		cachedImages[cachedImage.Name] = cachedImage
 	}
@@ -179,7 +179,7 @@ func (c *ControllerCollector) getContainersWithCachedImageMetric() (*prometheus.
 		for _, container := range pod.Spec.Containers {
 			annotationKey := registry.ContainerAnnotationKey(container.Name, false)
 			if sourceImage, ok := pod.Annotations[annotationKey]; ok {
-				cachedImageName, err := v1alpha1.CachedImageNameFromSourceImage(sourceImage)
+				cachedImageName, err := v1alpha1ext1.CachedImageNameFromSourceImage(sourceImage)
 				if err != nil {
 					return nil, err
 				}
@@ -196,7 +196,7 @@ func (c *ControllerCollector) getContainersWithCachedImageMetric() (*prometheus.
 }
 
 func (c *ControllerCollector) getRepositoriesMetric() (*prometheus.GaugeVec, error) {
-	repositoriesList := &v1alpha1.RepositoryList{}
+	repositoriesList := &v1alpha1ext1.RepositoryList{}
 	if err := c.List(context.Background(), repositoriesList); err != nil {
 		return nil, err
 	}

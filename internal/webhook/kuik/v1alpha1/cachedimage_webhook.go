@@ -15,14 +15,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/distribution/reference"
 	"github.com/adisplayname/kube-image-keeper/internal/registry"
+	"github.com/distribution/reference"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
+	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
 )
 
 // nolint:unused

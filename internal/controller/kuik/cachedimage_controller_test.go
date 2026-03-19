@@ -9,7 +9,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1"
+	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
 )
 
 var _ = Describe("CachedImage Controller", func() {

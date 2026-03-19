@@ -1,17 +1,17 @@
-package v1alpha1
+package v1alpha1ext1
 
 import (
 	"context"
 	"testing"
 
-	kuikv1alpha1 "github.com/adisplayname/kube-image-keeper/api/kuik/v1alpha1ext1"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func TestDefault(t *testing.T) {
-	cachedImageStub := kuikv1alpha1.CachedImage{}
+	cachedImageStub := CachedImage{}
 
+	g := NewWithT(t)
 	tests := []struct {
 		name                    string
 		sourceImage             string
@@ -37,16 +37,14 @@ func TestDefault(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
 			cachedImage := cachedImageStub.DeepCopy()
 			cachedImage.Spec.SourceImage = tt.sourceImage
 
-			defaulter := CachedImageCustomDefaulter{}
-			err := defaulter.Default(context.TODO(), cachedImage)
+			err := (&CachedImage{}).Default(context.TODO(), cachedImage)
 
 			if tt.wantErr == nil {
 				g.Expect(cachedImage.Labels).ToNot(BeNil())
-				g.Expect(cachedImage.Labels[kuikv1alpha1.RepositoryLabelName]).To(Equal(tt.expectedRepositoryLabel))
+				g.Expect(cachedImage.Labels[RepositoryLabelName]).To(Equal(tt.expectedRepositoryLabel))
 			} else {
 				g.Expect(err).To(Equal(tt.wantErr))
 			}
