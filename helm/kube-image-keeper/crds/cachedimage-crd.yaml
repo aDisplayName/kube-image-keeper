@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.4
   name: cachedimages.kuik.enix.io
 spec:
   group: kuik.enix.io
@@ -40,7 +40,7 @@ spec:
     name: v1alpha1ext1
     schema:
       openAPIV3Schema:
-        description: CachedImage is the Schema for the cachedimages API
+        description: CachedImage is the Schema for the cachedimages API.
         properties:
           apiVersion:
             description: |-
@@ -60,7 +60,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: CachedImageSpec defines the desired state of CachedImage
+            description: CachedImageSpec defines the desired state of CachedImage.
             properties:
               expiresAt:
                 description: ExpiresAt is the time when the image should be deleted
@@ -78,7 +78,7 @@ spec:
             - sourceImage
             type: object
           status:
-            description: CachedImageStatus defines the observed state of CachedImage
+            description: CachedImageStatus defines the observed state of CachedImage.
             properties:
               availableUpstream:
                 description: AvailableUpstream indicate whether if the referenced
@@ -109,10 +109,6 @@ spec:
               phase:
                 description: Phase is the current phase of the image
                 type: string
-              upToDate:
-                description: UpToDate indicate whether if the cached image is up to
-                  date with the upstream one or not
-                type: boolean
               upstreamDigest:
                 description: UpstreamDigest is the upstream image digest
                 type: string
@@ -121,17 +117,16 @@ spec:
                 properties:
                   total:
                     type: integer
-                    description: Total size of the compressed blob in bytes, including all layers.
+                    description: Total size of the compressed blob in bytes, including all layers, excluding all manifests.
                   available:
                     type: integer
-                    description: Total downloaded / available size of the compressed blob in bytes, including all layers.
+                    description: Total downloaded / available size of the compressed blob in bytes, including all layers, excluding all manifests.
               usedBy:
                 description: UsedBy is the list of pods using this image
                 properties:
                   count:
                     description: |-
                       Count is the number of pods using this image
-
 
                       jsonpath function .length() is not implemented, so the count field is required to display pods count in additionalPrinterColumns
                       see https://github.com/kubernetes-sigs/controller-tools/issues/447

@@ -239,6 +239,12 @@ registry:
     schedule: "0 0 * * 0"
     # -- If true, delete untagged manifests. Default to false since there is a known bug in **docker distribution** garbage collect job.
     deleteUntagged: false
+    # -- Security context for the garbage collector pod
+    podSecurityContext: {}
+    # -- Security context for containers of the garbage collector pod
+    securityContext: {}
+    # -- Specify secrets to be used when pulling garbage-collector image
+    imagePullSecrets: []
     # -- Specify a nodeSelector for the garbage collector pod
     nodeSelector: {}
     # -- Affinity for the garbage collector pod
@@ -278,7 +284,7 @@ registry:
     httpGet:
       path: /v2/
       port: 5000
-    # -- Liveness probe definition for the proxy pod
+  # -- Liveness probe definition for the registry pod
   livenessProbe:
     httpGet:
       path: /v2/
@@ -318,7 +324,7 @@ registry:
     # -- Maximum unavailable pods
     maxUnavailable: ""
   serviceMonitor:
-    # -- Should a ServiceMonitor object be installed to  scrape kuik registry metrics. For prometheus-operator (kube-prometheus) users.
+    # -- Should a ServiceMonitor object be installed to scrape kuik registry metrics. For prometheus-operator (kube-prometheus) users.
     create: false
     # -- Target scrape interval set in the ServiceMonitor
     scrapeInterval: 60s
@@ -329,8 +335,14 @@ registry:
     # -- Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
     relabelings: []
   serviceAccount:
-    # -- Annotations to add to the servicateAccount
+    # -- Create the registry serviceAccount. If false, use serviceAccount with specified name (or "default" if false and name unset.)
+    create: true
+    # -- Name of the registry serviceAccount (auto-generated if unset and create is true)
+    name: ""
+    # -- Annotations to add to the registry serviceAccount
     annotations: {}
+    # -- Additional labels to add to the registry serviceAccount
+    extraLabels: {}
 
 docker-registry-ui:
   # -- If true, enable the registry user interface
@@ -366,11 +378,19 @@ minio:
         --secret-key "$(cat /opt/bitnami/minio/svcacct/registry/secretKey)"
         provisioning registry) > /dev/null
 
+rbac:
+  # -- Create the ClusterRole and ClusterRoleBinding. If false, need to associate permissions with serviceAccount outside this Helm chart.
+  create: true
+
 serviceAccount:
-  # -- Annotations to add to the servicateAccount
-  annotations: {}
-  # -- Name of the serviceAccount
+  # -- Create the serviceAccount. If false, use serviceAccount with specified name (or "default" if false and name unset.)
+  create: true
+  # -- Name of the serviceAccount (auto-generated if unset and create is true)
   name: ""
+  # -- Annotations to add to the serviceAccount
+  annotations: {}
+  # -- Additional labels to add to the serviceAccount
+  extraLabels: {}
 
 psp:
   # -- If True, create the PodSecurityPolicy

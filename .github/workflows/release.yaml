@@ -1,0 +1,15 @@
+# v2 branch has a release.yaml workflow and can't be triggered if main doesn't have it.
+# However renaming release.yml to release.yaml make us lose the history of v1 releases.
+# So instead, we have this dummy workflow to allow triggering it on v2 branch.
+name: Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Release v2
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Requirements
+        run: echo "This must be run on branch v2"; exit 1

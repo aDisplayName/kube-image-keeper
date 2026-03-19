@@ -80,7 +80,7 @@ func options(ref name.Reference, keychain authn.Keychain, insecureRegistries []s
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 
-	if slices.Contains(insecureRegistries, ref.Context().Registry.RegistryStr()) {
+	if slices.Contains(insecureRegistries, ref.Context().RegistryStr()) {
 		transport.TLSClientConfig.InsecureSkipVerify = true
 	}
 
@@ -125,9 +125,9 @@ func DeleteImage(imageName string) error {
 }
 
 // Perform an image caching, and update the caching progress
-// callback: Local cache registry write progress update call back. The total size written to the cache registry may be less then the total size of the image, if there are duplicated or existing layer already.
+// onProgressUpdate: Local cache registry write progress update call back. The total size written to the cache registry may be less then the total size of the image, if there are duplicated or existing layer already.
 // onUpdateTotalSize: Total image size callback at the end of the caching. Size of all layers will be included, regardless whether they are already in cache registry.
-func CacheImage(imageName string, desc *remote.Descriptor, architectures []string, callback func(v1.Update), onUpdateTotalSize func(int64)) error {
+func CacheImage(imageName string, desc *remote.Descriptor, architectures []string, onProgressUpdate func(v1.Update), onUpdateTotalSize func(int64)) error {
 
 	destRef, err := parseLocalReference(imageName)
 	if err != nil {
@@ -135,11 +135,11 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 	}
 
 	progressUpdate := make(chan v1.Update, 100)
-
+	// The channel will be closed by remote.Write / remote.WriteIndex call with remote.WithProgress option.
 	go func() {
 		for update := range progressUpdate {
-			if callback != nil {
-				callback(update)
+			if onProgressUpdate != nil {
+				onProgressUpdate(update)
 			}
 		}
 	}()
@@ -166,7 +166,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 		}
 
 		if onUpdateTotalSize != nil {
-			// Calculate total extracted size for multi-arch images
+			// Calculate total compressed size for image blobs
 			totalSize, err := getImageSizeByManifestIndex(filteredIndex)
 			if err != nil {
 				return nil
@@ -174,7 +174,6 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 
 			onUpdateTotalSize(totalSize)
 		}
-
 	default:
 		image, err := desc.Image()
 		if err != nil {
@@ -189,9 +188,9 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 		if onUpdateTotalSize != nil {
 			var totalSize int64
 
-			// We will ignore the size of the manifest, as well as the config file.
+			// We will ignore the size of the manifest, as well as the size of config file.
 			// Only blob size is calculated.
-			// The code snippet to include config and manifest file size is being kept here.
+			// The code snippet to include config and manifest file size is being kept here for future reference.
 			/*
 
 				manifestSize, err := image.Size()
@@ -206,7 +205,7 @@ func CacheImage(imageName string, desc *remote.Descriptor, architectures []strin
 				totalSize += config.Config.Size
 			*/
 
-			// Get layers and track progress for each
+			// Get layers and calculate total size
 			layers, err := image.Layers()
 			if err != nil {
 				return nil // Ignore
@@ -273,23 +272,24 @@ func getImageSizeByManifestIndex(tt v1.ImageIndex) (int64, error) {
 	}
 
 	for _, child := range children {
-		switch typedChild := child.(type) {
+		child := child
+		switch child := child.(type) {
 		case v1.ImageIndex:
-			size, err := getImageSizeByManifestIndex(typedChild)
+			size, err := getImageSizeByManifestIndex(child)
 			if err != nil {
 				return 0, err
 			}
 			totalSize += size
 
 		case v1.Image:
-			imageSize, err := getImageSizeByImageManifest(typedChild)
+			imageSize, err := getImageSizeByImageManifest(child)
 			if err != nil {
 				return 0, err
 			}
 			totalSize += imageSize
 
 		case v1.Layer:
-			layerSize, err := typedChild.Size()
+			layerSize, err := child.Size()
 			if err != nil {
 				return 0, err
 			}

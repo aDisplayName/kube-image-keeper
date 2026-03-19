@@ -35,7 +35,7 @@ type UsedBy struct {
 
 type Progress struct {
 	// Total is the total size of data to be copied over to local registry cache
-	Total     int64 `json:"total,omitempty"`
+	Total int64 `json:"total,omitempty"`
 	// Available is the size of data has already been copied over to the local registry cache
 	Available int64 `json:"available,omitempty"`
 }
@@ -48,7 +48,7 @@ type CachedImageStatus struct {
 	Phase string `json:"phase,omitempty"`
 	// UsedBy is the list of pods using this image
 	UsedBy UsedBy `json:"usedBy,omitempty"`
-	
+
 	// Progress is progress of the image pulling from source to local registry
 	Progress Progress `json:"progress,omitempty"`
 

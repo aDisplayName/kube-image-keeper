@@ -76,9 +76,9 @@ func TestDesiredCachedImages(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			cachedImages := DesiredCachedImages(context.Background(), &tt.pod)
 			g.Expect(cachedImages).To(HaveLen(len(tt.cachedImages)))
 			for i, cachedImage := range cachedImages {
@@ -115,9 +115,9 @@ func Test_cachedImageFromSourceImage(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			cachedImage, err := cachedImageFromSourceImage(tt.sourceImage)
 			g.Expect(err).ToNot(HaveOccurred())
 
@@ -161,7 +161,7 @@ var _ = Describe("Pod Controller", func() {
 			}, timeout, interval).Should(HaveLen(len(podStub.Spec.Containers) + len(podStub.Spec.InitContainers)))
 
 			annotationsImages := []string{}
-			for _, annotation := range podStub.ObjectMeta.Annotations {
+			for _, annotation := range podStub.Annotations {
 				annotationsImages = append(annotationsImages, annotation)
 			}
 			cachedImages := []string{}

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-//+kubebuilder:webhook:path=/mutate-core-v1-pod,mutating=true,failurePolicy=fail,sideEffects=None,groups=core,resources=pods,verbs=create;update,versions=v1,name=mpod.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-core-v1-pod,mutating=true,failurePolicy=fail,sideEffects=None,groups=core,resources=pods,verbs=create;update,versions=v1,name=mpod.kb.io,admissionReviewVersions=v1
 
 var (
 	errImageContainsDigests = errors.New("image contains a digest")
@@ -38,7 +38,7 @@ type ImageRewriter struct {
 	AcceptImages           []*regexp.Regexp
 	IgnorePullPolicyAlways bool
 	ProxyPort              int
-	Decoder                *admission.Decoder
+	Decoder                admission.Decoder
 }
 
 type PodInitializer struct {
@@ -46,6 +46,7 @@ type PodInitializer struct {
 }
 
 type RewrittenImage struct {
+	ContainerName       string
 	Original            string
 	Rewritten           string
 	NotRewrittenBecause string
@@ -64,7 +65,13 @@ func (a *ImageRewriter) Handle(ctx context.Context, req admission.Request) admis
 
 	rewrittenImages := a.RewriteImages(pod, req.Operation == admissionv1.Create)
 
-	log.Info("rewriting pod images", "rewrittenImages", rewrittenImages)
+	for _, rewrittenImage := range rewrittenImages {
+		if rewrittenImage.Original == "" {
+			log.Error(errors.New("missing original image annotation for container"), "rewritten container is missing its original image annotation, this will prevent CachedImages from being created", "container", rewrittenImage.ContainerName)
+		}
+	}
+
+	log.V(1).Info("rewriting pod images", "images", rewrittenImages)
 
 	marshaledPod, err := json.Marshal(pod)
 	if err != nil {
@@ -93,58 +100,60 @@ func (a *ImageRewriter) RewriteImages(pod *corev1.Pod, isNewPod bool) []Rewritte
 	// Handle Containers
 	for i := range pod.Spec.Containers {
 		container := &pod.Spec.Containers[i]
-		rewrittenImage := a.handleContainer(pod, container, registry.ContainerAnnotationKey(container.Name, false), rewriteImages)
+		rewrittenImage := a.handleContainer(pod, container, false, rewriteImages)
 		rewrittenImages = append(rewrittenImages, rewrittenImage)
 	}
 
 	// Handle init containers
 	for i := range pod.Spec.InitContainers {
 		container := &pod.Spec.InitContainers[i]
-		rewrittenImage := a.handleContainer(pod, container, registry.ContainerAnnotationKey(container.Name, true), rewriteImages)
+		rewrittenImage := a.handleContainer(pod, container, true, rewriteImages)
 		rewrittenImages = append(rewrittenImages, rewrittenImage)
 	}
 
 	return rewrittenImages
 }
 
-func (a *ImageRewriter) handleContainer(pod *corev1.Pod, container *corev1.Container, annotationKey string, rewriteImage bool) RewrittenImage {
-	if err := a.isImageRewritable(container); err != nil {
-		return RewrittenImage{
-			Original:            container.Image,
-			NotRewrittenBecause: err.Error(),
-		}
+func (a *ImageRewriter) handleContainer(pod *corev1.Pod, container *corev1.Container, initContainer bool, rewriteImage bool) RewrittenImage {
+	annotationKey := registry.ContainerAnnotationKey(container.Name, initContainer)
+	rewrittenImage := RewrittenImage{
+		ContainerName: container.Name,
 	}
 
-	re := regexp.MustCompile(`localhost:[0-9]+/`)
+	if err := a.isImageRewritable(container); err != nil {
+		rewrittenImage.NotRewrittenBecause = err.Error()
+		return rewrittenImage
+	}
+
+	re := regexp.MustCompile(`^localhost:[0-9]+/`)
 	image := re.ReplaceAllString(container.Image, "")
 
 	sourceRef, err := name.ParseReference(image, name.Insecure)
 	if err != nil {
-		return RewrittenImage{
-			Original:            container.Image,
-			NotRewrittenBecause: err.Error(),
-		} // ignore rewriting invalid images
+		// ignore rewriting invalid images
+		rewrittenImage.NotRewrittenBecause = err.Error()
+		return rewrittenImage
 	}
 
 	if !rewriteImage {
-		return RewrittenImage{
-			Original:            container.Image,
-			NotRewrittenBecause: "pod doesn't allow to rewrite its images",
-		}
+		rewrittenImage.NotRewrittenBecause = "pod doesn't allow to rewrite its images"
+		return rewrittenImage
+
 	}
 
-	pod.Annotations[annotationKey] = image
+	// change the pod annotation only if the image has not been rewritten and thus is the original image
+	if !re.Match([]byte(container.Image)) {
+		pod.Annotations[annotationKey] = container.Image
+	}
 
 	sanitizedRegistryName := strings.ReplaceAll(sourceRef.Context().RegistryStr(), ":", "-")
 	image = strings.ReplaceAll(image, sourceRef.Context().RegistryStr(), sanitizedRegistryName)
 
-	originalImage := container.Image
 	container.Image = fmt.Sprintf("localhost:%d/%s", a.ProxyPort, image)
 
-	return RewrittenImage{
-		Original:  originalImage,
-		Rewritten: container.Image,
-	}
+	rewrittenImage.Original = pod.Annotations[annotationKey]
+	rewrittenImage.Rewritten = container.Image
+	return rewrittenImage
 }
 
 func (a *ImageRewriter) isImageRewritable(container *corev1.Container) error {
