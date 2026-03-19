@@ -1,4 +1,4 @@
-package v1alpha1
+package v1alpha1ext1
 
 // import (
 // 	"context"
@@ -36,7 +36,7 @@ func SetupCachedImageWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-kuik-enix-io-v1alpha1-cachedimage,mutating=true,failurePolicy=fail,sideEffects=None,groups=kuik.enix.io,resources=cachedimages,verbs=create;update,versions=v1alpha1,name=mcachedimage.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-kuik-enix-io-v1alpha1ext1-cachedimage,mutating=true,failurePolicy=fail,sideEffects=None,groups=kuik.enix.io,resources=cachedimages,verbs=create;update,versions=v1alpha1ext1,name=mcachedimage.kb.io,admissionReviewVersions=v1
 
 // CachedImageCustomDefaulter struct is responsible for setting default values on the custom resource of the
 // Kind CachedImage when those are created or updated.

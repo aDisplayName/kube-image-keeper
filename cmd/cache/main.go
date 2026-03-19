@@ -28,7 +28,7 @@ import (
 	"github.com/adisplayname/kube-image-keeper/internal/registry"
 	"github.com/adisplayname/kube-image-keeper/internal/scheme"
 	webhookcorev1 "github.com/adisplayname/kube-image-keeper/internal/webhook/core/v1"
-	webhookkuikv1 "github.com/adisplayname/kube-image-keeper/internal/webhook/kuik/v1alpha1"
+	webhookkuikv1 "github.com/adisplayname/kube-image-keeper/internal/webhook/kuik/v1alpha1ext1"
 	// +kubebuilder:scaffold:imports
 )
 
