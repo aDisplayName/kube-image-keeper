@@ -208,6 +208,7 @@ func (p *Proxy) proxyRegistry(c *gin.Context, endpoint string, endpointIsOrigin 
 		proxy.Transport = transport
 	}
 
+	proxy.Director = nil
 	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
 		pr.Out.Header = pr.In.Header
 		pr.Out.Host = remote.Host
